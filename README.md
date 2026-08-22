@@ -1,2 +1,2 @@
-# DS_Capstone_Template
-Template Repository for Data Science Capstone Projects
+# DS_Capstone
+Repository for Data Science Capstone Projects
