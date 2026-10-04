@@ -1,0 +1,32 @@
+# LendingClub Credit Funnel — Python dependencies
+# Core versions pinned to match the environment the notebooks were run in.
+# scikit-learn MUST stay at 1.6.1 to reload models/final_default_model.joblib.
+
+# --- Core (pinned) ---
+pandas==2.3.3
+numpy==1.26.4
+scikit-learn==1.6.1
+
+# --- Modeling & stats ---
+imbalanced-learn>=0.12,<0.14    # SMOTE comparison (Notebook 02)
+statsmodels>=0.14               # VIF multicollinearity check (Notebook 02)
+joblib>=1.3                     # model serialization
+
+# --- Data I/O ---
+pyarrow>=14.0                   # parquet read/write for data/interim/
+
+# --- Visualization ---
+matplotlib>=3.7
+seaborn>=0.13
+
+# --- Notebooks & data download ---
+jupyterlab>=4.0
+ipykernel>=6.25
+kaggle>=1.6                     # kaggle datasets download -d wordsforthewise/lending-club
+
+# --- Optional (used automatically if installed; not used in the final run) ---
+# Installing these changes results: Notebook 03 prefers LightGBM > XGBoost >
+# HistGradientBoosting, and uses SHAP instead of permutation importance.
+# lightgbm>=4.0
+# xgboost>=2.0
+# shap>=0.44
