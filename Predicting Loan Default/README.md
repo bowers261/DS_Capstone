@@ -364,7 +364,35 @@ The Brier score is **0.209**, and the reliability curve sits well below the diag
 
 ### 6.6 Access / policy analysis
 
-The accepted-vs-rejected comparison (amount, credit score, DTI, and approval share by state) was completed in **Notebook 01**, using all 1,348,099 terminal accepted loans and a 499,594-row sample of declined applications. The **policy-characterization model** in Notebook 03 (§12) was **not executed** in the final run because the rejected CSV was not found at `data/raw/rejected_2007_to_2018q4.csv`. To produce the historical approval drivers and the with/without-`Risk_Score_missing` comparison, set `REJECTED_CSV` and re-run §12.
+The accepted-vs-rejected comparison (amount, credit score, DTI, and approval share by state) is in **Notebook 01**. The **policy-characterization model** is in **Notebook 03, §12**. It describes which shared application fields separated approved from declined applicants in the past; it does not predict future approvals or say how declined applicants would have performed.
+
+**Design.** 1,348,099 accepted loans and a 999,586-row sample of declined applications. Before modeling, a diagnostic pass found four ways the two files record the same fields differently, and each one was handled so the model learns approval policy rather than recording habits:
+
+| Recording difference | Handling |
+|---|---|
+| Accepted loans always have a credit score; 70% of post-Nov-2013 declines have none | Missing-score flag tested, then **excluded** (see below) |
+| Declined `Risk_Score` changes type on 2013-11-05 | Credit score modeled only for **earlier** applications (Spec B) |
+| Numbers stored at different precision (FICO midpoints always end in 2 or 7; declined amounts mostly round thousands) | Amount, DTI and credit score grouped into **bands**; rows with missing DTI dropped |
+| "< 1 year" employment on 83% of declines vs. 8% of approvals | Employment length **excluded** |
+
+Approved and declined applicants are sampled in **equal numbers within each year**, so the model cannot learn "later year → declined."
+
+**How well the shared fields describe past decisions** (75/25 holdout):
+
+| Spec | Fields | LogReg | Random Forest | HistGB |
+|---|---|---|---|---|
+| A — all years | amount, DTI, state | 0.751 | 0.751 | 0.752 |
+| B — before 2013-11-05 | + credit score | **0.917** | 0.916 | 0.917 |
+
+All three algorithms agree within 0.002, which shows the banding removed the precision shortcut: an earlier unbanded run reached 0.98 by exploiting it. **The `Risk_Score_missing` test from the pitch:** adding a missing-score indicator lifts ROC-AUC by **+0.046** (0.914 → 0.960). That lift reflects how the files were recorded, not underwriting judgment, so the flag is excluded from the findings.
+
+**Historical approval drivers** (logistic-regression approval odds, relative to the average band):
+
+- **Credit score was a hard floor at 660.** Approval odds are near zero below 640 and jump roughly 130-fold from the 640–659 band (0.04) to 660–679 (5.2), then keep rising with score (13.2 at 780+).
+- **Debt-to-income was capped around 35%.** Before Nov 2013, odds fall from about 9 in the 10–25% bands to 0.01 at 35–40% and effectively zero above 40%. Across all years the drop is softer and comes later (0.44 at 35–40%, 0.06 at 40%+), consistent with the cap loosening over time.
+- **Loan size mattered at the edges.** Requests under $5k and over $35k were approved less often across all years; before Nov 2013, requests above $25k were sharply less likely to be approved.
+
+**Geographic read (directional).** Without adjusting for credit score (Spec A), adjusted approval odds range from **0.73 (Arkansas)** to **1.37 (Colorado)**, with several Southern states at the low end. But once credit score is included (Spec B), the state pattern largely changes: the two sets of state odds correlate at only **0.09**. Most of the raw state differences therefore look like differences in applicants' credit profiles rather than state-specific treatment. Because the credit-adjusted view covers only pre-2013 applications, this is a signal for compliance review, not a finding of disparate treatment.
 
 ### Saved artifacts
 
@@ -378,7 +406,7 @@ The accepted-vs-rejected comparison (amount, credit score, DTI, and approval sha
 - **Vintage survivorship.** Keeping only terminal loans under-represents recent 60-month loans, which are still outstanding. This flatters the 2017–2018 test set toward faster-resolving loans.
 - **No outcomes for declined applicants.** Reject inference is out of scope, and the model learns only from loans the lender chose to fund.
 - **Fairness lens is geography only.** The data has no race, gender, age, or other protected-class fields. State-level analysis is a **directional signal for compliance review**, not a legal determination of disparate impact.
-- **Mixed credit-score scales.** FICO (accepted) and `Risk_Score` (rejected) are not directly comparable.
+- **Mismatched records between the two files.** The rejected file's `Risk_Score` changes type in Nov 2013 and is mostly missing afterwards, numbers are stored at different precision, and employment length is coded differently. The policy model works around these (bands, a pre-2013 credit spec, excluded fields), but its view of underwriting is partial: only a few fields are recorded in both files.
 - **Dollar figures are assumption-driven.** LGD and margin are placeholders for the client's real economics.
 - **Regulatory context.** Production use would require fair-lending review (e.g., ECOA) of the feature set and adverse-action explainability.
 
