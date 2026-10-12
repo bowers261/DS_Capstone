@@ -102,7 +102,7 @@ flowchart TD
 ## 2. Repository Structure
 
 ```
-lending-club-default/
+Predicting Loan Default/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore                                   ← excludes data/ and large artifacts
